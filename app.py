@@ -173,17 +173,56 @@ def signer(): return Signer()
 
 def nearest_node(lat, lon): return min(P, key=lambda n: hav(P[n], (lat, lon)))
 
+
 def edge_cost(eid, ratios, mode, rain, incident_ids, avoid_rain):
-    u,v,length,speed,_ = EDGES[eid]
-    mid = ((P[u][0]+P[v][0])/2, (P[u][1]+P[v][1])/2)
-    closest = min(PROBES, key=lambda name: hav(mid, PROBES[name]))
-    ratio = ratios.get(closest, .65)
-    seconds = BASE_SECONDS[eid] / max(.16, ratio)
-    if mode == "Reliable": seconds *= 1 + (1-ratio)*.75
-    elif mode == "Eco proxy": seconds = BASE_SECONDS[eid] * 1.12 + (1-ratio)*5
-    if eid in incident_ids: seconds *= 7.0
-    if avoid_rain and rain >= 1.0 and (int(u) % 17 == 0 or int(v) % 19 == 0): seconds *= 3.0
-    return seconds
+    u, v, length, speed, _ = EDGES[eid]
+
+    # Start with the road's estimated free-flow travel time.
+    base_seconds = BASE_SECONDS[eid]
+
+    # Use a live observation only when a valid nearby probe exists.
+    mid = (
+        (P[u][0] + P[v][0]) / 2,
+        (P[u][1] + P[v][1]) / 2,
+    )
+
+    ratio = None
+    if ratios:
+        closest = min(
+            PROBES,
+            key=lambda name: hav(mid, PROBES[name]),
+        )
+        observed = ratios.get(closest)
+
+        if observed is not None and 0 < float(observed) <= 1:
+            ratio = float(observed)
+
+    # Roads without a valid observation retain estimated speeds.
+    if ratio is None:
+        seconds = base_seconds
+        effective_ratio = 1.0
+    else:
+        seconds = base_seconds / max(0.16, ratio)
+        effective_ratio = ratio
+
+    if mode == "Reliable":
+        seconds *= 1 + (1 - effective_ratio) * 0.75
+    elif mode == "Eco proxy":
+        seconds = base_seconds * 1.12 + (1 - effective_ratio) * 5
+
+    if eid in incident_ids:
+        seconds *= 7.0
+
+    if (
+        avoid_rain
+        and rain is not None
+        and rain >= 1.0
+        and (int(u) % 17 == 0 or int(v) % 19 == 0)
+    ):
+        seconds *= 3.0
+
+    return max(0.001, seconds)
+
 
 def route_result(start_name, end_name, mode, snapshot, weather, incident_ids, avoid_rain):
     a, b = nearest_node(*PLACES[start_name]), nearest_node(*PLACES[end_name])
