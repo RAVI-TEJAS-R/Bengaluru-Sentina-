@@ -47,19 +47,39 @@ def astar(adj, P, w, s, t, vmax=16.7):
     return path[::-1], edges[::-1], g[t]
 
 
-def k_routes(adj, P, w, s, t, k=3, pen=1.5):
-    """Generate diverse alternatives with a transparent edge-penalty heuristic."""
-    penalties, out, seen = {}, [], set()
+
+def k_routes(adj, P, w, s, t, k=3, pen=2.0):
+    """Generate distinct alternatives by penalizing edges used previously."""
+    penalties = {}
+    out = []
+    seen = set()
+
     for _ in range(k):
-        result = astar(adj, P, lambda e: w(e) * penalties.get(e, 1.0), s, t)
-        if not result:
+        result = astar(
+            adj,
+            P,
+            lambda e: float(w(e)) * penalties.get(e, 1.0),
+            s,
+            t,
+        )
+
+        if result is None:
             break
-        signature = tuple(result[1])
+
+        path, edge_ids, _ = result
+        signature = tuple(edge_ids)
+
         if signature not in seen:
             seen.add(signature)
-            out.append((result[0], result[1], sum(w(e) for e in result[1])))
-        for edge_id in result[1]:
+
+            # Report actual, unpenalized travel cost.
+            actual_cost = sum(float(w(e)) for e in edge_ids)
+            out.append((path, edge_ids, actual_cost))
+
+        # Encourage the next route to explore different roads.
+        for edge_id in edge_ids:
             penalties[edge_id] = penalties.get(edge_id, 1.0) * pen
+
     return out
 
 
