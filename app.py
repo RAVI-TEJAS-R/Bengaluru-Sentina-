@@ -62,21 +62,57 @@ def weather_now():
         return {"ok": False, "temp": 27.0, "rain": 0.0, "wind": 8.0, "time": "", "source": "Weather unavailable; demo values shown"}
 
 @st.cache_data(ttl=600, show_spinner=False)
+
 def traffic_snapshot(api_key: str):
     if not api_key:
-        return {"source": "Simulated traffic (add TOMTOM_KEY for live feed)", "ratios": {n: synthetic_ratio(i) for i, n in enumerate(PROBES)}, "ok": False, "errors": []}
+        return {
+            "source": "Unavailable — TOMTOM_KEY missing",
+            "ratios": {},
+            "ok": False,
+            "errors": ["TOMTOM_KEY is not configured"],
+        }
+
     ratios, errors = {}, []
-    for i, (name, (lat, lon)) in enumerate(PROBES.items()):
+
+    for name, (lat, lon) in PROBES.items():
         try:
-            url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json"
-            r = requests.get(url, params={"point": f"{lat},{lon}", "key": api_key}, timeout=5)
-            r.raise_for_status(); flow = r.json().get("flowSegmentData", {})
-            current = float(flow.get("currentSpeed", 0)); free = max(1.0, float(flow.get("freeFlowSpeed", 1)))
-            ratios[name] = max(0.08, min(1.0, current / free))
+            url = (
+                "https://api.tomtom.com/traffic/services/4/"
+                "flowSegmentData/relative0/10/json"
+            )
+            response = requests.get(
+                url,
+                params={"point": f"{lat},{lon}", "key": api_key},
+                timeout=10,
+            )
+            response.raise_for_status()
+
+            flow = response.json()["flowSegmentData"]
+            current = float(flow["currentSpeed"])
+            free = float(flow["freeFlowSpeed"])
+
+            if current < 0 or free <= 0:
+                raise ValueError("Invalid speed measurement")
+
+            ratios[name] = min(1.0, current / free)
+
         except Exception as exc:
             errors.append(f"{name}: {type(exc).__name__}")
-            ratios[name] = synthetic_ratio(i)
-    return {"source": "TomTom live + fallback" if errors else "TomTom live traffic", "ratios": ratios, "ok": len(errors) < len(PROBES), "errors": errors}
+
+    if not ratios:
+        source = "Unavailable — no live measurements received"
+    elif errors:
+        source = "Partial live traffic — some probes failed"
+    else:
+        source = "TomTom live traffic — all probes successful"
+
+    return {
+        "source": source,
+        "ratios": ratios,
+        "ok": bool(ratios) and not errors,
+        "errors": errors,
+    }
+
 
 def synthetic_ratio(seed):
     hour = dt.datetime.now().hour
