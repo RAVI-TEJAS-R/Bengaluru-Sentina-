@@ -119,7 +119,7 @@ def synthetic_ratio(seed):
     rush = 0.25 if 8 <= hour <= 11 or 17 <= hour <= 20 else 0
     return round(max(.18, min(.98, .76 - rush + .14 * __import__('math').sin(seed * 1.7) + random.Random(seed + hour * 13).uniform(-.08, .08))), 2)
 
-@st.cache_resource
+
 
 @st.cache_resource(show_spinner="Loading real Bengaluru road network...")
 def road_graph():
