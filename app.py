@@ -134,7 +134,7 @@ def route_result(start_name, end_name, mode, snapshot, weather, incident_ids, av
     return output
 
 def map_view(snapshot, weather, routes=None, incidents=True):
-    m = folium.Map(location=CENTER, zoom_start=11, tiles="CartoDB dark_matter", control_scale=True)
+    m = folium.Map(location=CENTER, zoom_start=11, tiles="OpenStreetMap", control_scale=True)
     for name, coord in PLACES.items():
         folium.CircleMarker(coord, radius=5, color="#57b7ff", fill=True, fill_opacity=.9, tooltip=name).add_to(m)
     for name, coord in PROBES.items():
