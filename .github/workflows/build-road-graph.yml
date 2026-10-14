@@ -1,0 +1,36 @@
+
+name: Build Bengaluru Road Graph
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install OSMnx
+        run: pip install osmnx
+
+      - name: Build road graph
+        run: python build_graph.py
+
+      - name: Upload road graph artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bengaluru-road-graph
+          path: data/graph.pkl
+          if-no-files-found: error
+          retention-days: 7
