@@ -120,22 +120,53 @@ def synthetic_ratio(seed):
     return round(max(.18, min(.98, .76 - rush + .14 * __import__('math').sin(seed * 1.7) + random.Random(seed + hour * 13).uniform(-.08, .08))), 2)
 
 @st.cache_resource
+
+@st.cache_resource(show_spinner="Loading real Bengaluru road network...")
 def road_graph():
-    # Small synthetic grid, deliberately labelled as a demo network unless a real graph is supplied.
-    n = 22; points = {}
-    for i in range(n):
-        for j in range(n):
-            points[i*n+j] = (12.895 + i * 0.0064, 77.535 + j * 0.0080)
-    edges = []; adj = {node: [] for node in points}
-    for i in range(n):
-        for j in range(n):
-            u = i*n+j
-            for di, dj in ((0,1),(1,0)):
-                if i+di < n and j+dj < n:
-                    v = (i+di)*n+j+dj; length = hav(points[u], points[v])
-                    for a,b in ((u,v),(v,u)):
-                        eid = len(edges); edges.append((a,b,length,30,0)); adj[a].append((b,eid))
+    import osmnx as ox
+
+    # Bengaluru coverage; coordinates are north, south, east, west.
+    G = ox.graph_from_bbox(
+        bbox=(13.10, 12.82, 77.78, 77.45),
+        network_type="drive",
+        simplify=True,
+    )
+
+    points = {
+        node: (float(data["y"]), float(data["x"]))
+        for node, data in G.nodes(data=True)
+    }
+
+    speed_by_road = {
+        "motorway": 60,
+        "trunk": 50,
+        "primary": 40,
+        "secondary": 30,
+        "tertiary": 25,
+        "residential": 20,
+        "unclassified": 20,
+    }
+
+    edges = []
+    adj = {node: [] for node in points}
+
+    for u, v, key, data in G.edges(keys=True, data=True):
+        highway = data.get("highway", "unclassified")
+        if isinstance(highway, list):
+            highway = highway[0]
+
+        length = float(data.get("length", 1.0))
+        speed = speed_by_road.get(highway, 20)
+
+        eid = len(edges)
+        edges.append((u, v, length, speed, 0))
+        adj[u].append((v, eid))
+
+    if not points or not edges:
+        raise RuntimeError("OpenStreetMap returned an empty road graph.")
+
     return points, edges, adj
+
 
 P, EDGES, ADJ = road_graph()
 BASE_SECONDS = [length / max(speed/3.6, 1) for _,_,length,speed,_ in EDGES]
