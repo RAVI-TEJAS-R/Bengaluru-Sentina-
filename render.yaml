@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: blr-sentinel
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: TOMTOM_KEY
+        sync: false
+      - key: TRAFFIC_REFRESH_SECONDS
+        value: "600"
+      - key: PSEUDONYM_SECRET
+        sync: false
