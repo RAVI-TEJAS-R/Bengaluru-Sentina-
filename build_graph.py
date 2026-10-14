@@ -7,7 +7,7 @@ import osmnx as ox
 
 SPEED_KMH = {"motorway": 60, "trunk": 50, "primary": 40, "secondary": 30, "tertiary": 25}
 os.makedirs("data", exist_ok=True)
-G = ox.graph_from_point((12.95, 77.62), dist=6500, network_type="drive", simplify=True)
+G = ox.graph_from_point((12.9716, 77.5946), dist=25000, network_type="drive", simplify=True)
 P = {node: (data["y"], data["x"]) for node, data in G.nodes(data=True)}
 E = []
 for u, v, data in G.edges(data=True):
