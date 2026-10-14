@@ -123,6 +123,7 @@ def synthetic_ratio(seed):
 
 
 
+
 @st.cache_resource
 def road_graph():
     import os
@@ -130,47 +131,31 @@ def road_graph():
 
     graph_path = os.path.join("data", "graph.pkl")
 
-    if os.path.exists(graph_path):
-        with open(graph_path, "rb") as handle:
-            graph = pickle.load(handle)
-
-        points = graph["P"]
-        edges = graph["E"]
-        adj = {node: [] for node in points}
-
-        for eid, edge in enumerate(edges):
-            u, v, length, speed, underpass = edge
-            adj[u].append((v, eid))
-
-        return points, edges, adj
-
-    # Temporary fallback only; this is NOT a real road network.
-    n = 22
-    points = {
-        i * n + j: (
-            12.895 + i * 0.0064,
-            77.535 + j * 0.0080,
+    if not os.path.exists(graph_path):
+        raise FileNotFoundError(
+            "data/graph.pkl is missing. Upload the generated "
+            "OpenStreetMap road graph to the repository."
         )
-        for i in range(n)
-        for j in range(n)
-    }
 
-    edges = []
+    with open(graph_path, "rb") as handle:
+        graph = pickle.load(handle)
+
+    points = graph["P"]
+    edges = graph["E"]
     adj = {node: [] for node in points}
 
-    for i in range(n):
-        for j in range(n):
-            u = i * n + j
+    for eid, edge in enumerate(edges):
+        u, v, length, speed, underpass = edge
 
-            for di, dj in ((0, 1), (1, 0)):
-                if i + di < n and j + dj < n:
-                    v = (i + di) * n + j + dj
-                    length = hav(points[u], points[v])
+        if u not in adj or v not in adj:
+            raise ValueError(
+                f"Road edge {eid} references a missing graph node."
+            )
 
-                    for a, b in ((u, v), (v, u)):
-                        eid = len(edges)
-                        edges.append((a, b, length, 30, 0))
-                        adj[a].append((b, eid))
+        adj[u].append((v, eid))
+
+    if not points or not edges:
+        raise ValueError("The road graph contains no usable roads.")
 
     return points, edges, adj
 
