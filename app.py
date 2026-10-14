@@ -122,10 +122,29 @@ def synthetic_ratio(seed):
 
 
 
+
 @st.cache_resource
 def road_graph():
-    # Temporary lightweight fallback so the dashboard can start.
-    # This is NOT a real road network.
+    import os
+    import pickle
+
+    graph_path = os.path.join("data", "graph.pkl")
+
+    if os.path.exists(graph_path):
+        with open(graph_path, "rb") as handle:
+            graph = pickle.load(handle)
+
+        points = graph["P"]
+        edges = graph["E"]
+        adj = {node: [] for node in points}
+
+        for eid, edge in enumerate(edges):
+            u, v, length, speed, underpass = edge
+            adj[u].append((v, eid))
+
+        return points, edges, adj
+
+    # Temporary fallback only; this is NOT a real road network.
     n = 22
     points = {
         i * n + j: (
@@ -142,6 +161,7 @@ def road_graph():
     for i in range(n):
         for j in range(n):
             u = i * n + j
+
             for di, dj in ((0, 1), (1, 0)):
                 if i + di < n and j + dj < n:
                     v = (i + di) * n + j + dj
@@ -156,6 +176,7 @@ def road_graph():
 
 
 P, EDGES, ADJ = road_graph()
+
 BASE_SECONDS = [
     length / max(speed / 3.6, 1)
     for _, _, length, speed, _ in EDGES
